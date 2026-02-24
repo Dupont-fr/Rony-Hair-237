@@ -1,0 +1,43 @@
+## 1.1 Créer le premier administrateur
+# POST http://localhost:3000/api/admin/create-first
+# Content-Type: application/json
+
+# {
+#   "nom": "Dupont Djeague",
+#   "email": "dupontdjeague@gmail.com",
+#   "password": "Admin@2024"
+# }
+
+# POST http://localhost:3000/api/admin/create-first
+# Content-Type: application/json
+
+# {
+#   "nom": "Gaetan Teguezang",
+#   "email": "gaetanteguezang@gmail.com",
+#   "password": "Admin@2026"
+# }
+
+
+
+
+# POST http://localhost:3000/api/admin/login
+# Content-Type: application/json
+
+# {
+#   "email": "dupontdjeague@gmail.com",
+#   "password": "Admin@2024"
+# }
+
+
+
+###
+POST http://localhost:3000/api/admin/create
+Content-Type: application/json
+Cookie: token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5OWI2MTBlYmY0ZTJkMmQ0ZjYyZmU4MiIsImVtYWlsIjoiZHVwb250ZGplYWd1ZUBnbWFpbC5jb20iLCJyb2xlIjoic3VwZXJfYWRtaW4iLCJpYXQiOjE3NzE4NzA0NDIsImV4cCI6MTc3MTk1Njg0Mn0.QwfgTeUXadIFkb1MaR1EvI-93Qu7zmfEQMhMH9KKjWw
+
+{
+  "nom": "Ronald Tsiguia",
+  "email": " tsiguiaremyronald@gmail.com",
+  "password": "Admin@2026",
+  "role": "super_admin"
+}
