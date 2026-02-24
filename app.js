@@ -13,7 +13,7 @@ app.use(
   cors({
     origin:
       process.env.NODE_ENV === 'production'
-        ? 'https://gaetan-bois.onrender.com' // Production
+        ? 'https://rony-hair-237.onrender.com' // Production
         : 'http://localhost:5173', // Dev
     credentials: true,
   }),
