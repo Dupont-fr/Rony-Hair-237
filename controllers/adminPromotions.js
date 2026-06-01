@@ -66,7 +66,7 @@ router.get('/:id', verifyAdmin, async (req, res) => {
 // @access  Private (Admin)
 router.post('/', verifyAdmin, async (req, res) => {
   try {
-    const { type, nom, dateDebut, dateFin, categorie, gains, dureeAffichage } =
+    const { type, nom, description, image, dateDebut, dateFin, categorie, gains, dureeAffichage } =
       req.body
 
     // Validation
@@ -107,6 +107,8 @@ router.post('/', verifyAdmin, async (req, res) => {
     const promotion = await Promotion.create({
       type,
       nom,
+      description: description || '',
+      image: image || '',
       dateDebut: new Date(dateDebut),
       dateFin: new Date(dateFin),
       categorie: type === 'stock-limite' ? categorie : undefined,
@@ -134,7 +136,7 @@ router.post('/', verifyAdmin, async (req, res) => {
 // @access  Private (Admin)
 router.put('/:id', verifyAdmin, async (req, res) => {
   try {
-    const { nom, dateDebut, dateFin, actif, gains, dureeAffichage } = req.body
+    const { nom, description, image, dateDebut, dateFin, actif, gains, dureeAffichage } = req.body
 
     const promotion = await Promotion.findById(req.params.id)
 
@@ -147,6 +149,8 @@ router.put('/:id', verifyAdmin, async (req, res) => {
 
     // Mettre à jour les champs
     if (nom !== undefined) promotion.nom = nom
+    if (description !== undefined) promotion.description = description
+    if (image !== undefined) promotion.image = image
     if (dateDebut !== undefined) promotion.dateDebut = new Date(dateDebut)
     if (dateFin !== undefined) promotion.dateFin = new Date(dateFin)
     if (actif !== undefined) promotion.actif = actif

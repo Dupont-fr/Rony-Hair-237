@@ -19,6 +19,17 @@ const promotionSchema = new mongoose.Schema(
       trim: true,
     },
 
+    description: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+
+    image: {
+      type: String,
+      default: '',
+    },
+
     actif: {
       type: Boolean,
       default: true,

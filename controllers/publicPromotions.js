@@ -13,6 +13,12 @@ router.get('/active', async (req, res) => {
   try {
     const now = new Date()
 
+    // Auto-désactiver les promos expirées
+    await Promotion.updateMany(
+      { actif: true, dateFin: { $lt: now } },
+      { $set: { actif: false } },
+    )
+
     // Récupérer toutes les promotions actives dans la période
     const promotions = await Promotion.find({
       actif: true,
@@ -20,7 +26,7 @@ router.get('/active', async (req, res) => {
       dateFin: { $gte: now },
     })
       .populate('categorie', 'nom slug')
-      .select('type nom dateDebut dateFin categorie gains dureeAffichage')
+      .select('type nom description image dateDebut dateFin categorie gains dureeAffichage')
       .sort({ createdAt: -1 })
 
     res.json({
@@ -45,13 +51,19 @@ router.get('/category/:categoryId', async (req, res) => {
     const { categoryId } = req.params
     const now = new Date()
 
+    // Auto-désactiver les promos expirées
+    await Promotion.updateMany(
+      { actif: true, dateFin: { $lt: now } },
+      { $set: { actif: false } },
+    )
+
     const promotion = await Promotion.findOne({
       type: 'stock-limite',
       categorie: categoryId,
       actif: true,
       dateDebut: { $lte: now },
       dateFin: { $gte: now },
-    }).select('type nom dateDebut dateFin')
+    }).select('type nom description image dateDebut dateFin')
 
     if (!promotion) {
       return res.json({
@@ -80,13 +92,19 @@ router.get('/tombola', async (req, res) => {
   try {
     const now = new Date()
 
+    // Auto-désactiver les promos expirées
+    await Promotion.updateMany(
+      { actif: true, dateFin: { $lt: now } },
+      { $set: { actif: false } },
+    )
+
     const promotions = await Promotion.find({
       type: 'tombola',
       actif: true,
       dateDebut: { $lte: now },
       dateFin: { $gte: now },
     })
-      .select('nom dateDebut dateFin gains dureeAffichage')
+      .select('nom description image dateDebut dateFin gains dureeAffichage')
       .sort({ createdAt: -1 })
 
     res.json({

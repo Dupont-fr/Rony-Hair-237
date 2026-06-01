@@ -2,49 +2,52 @@ const express = require('express')
 const router = express.Router()
 const Category = require('../models/Category')
 const Image = require('../models/image')
+const Promotion = require('../models/Promotion')
 
-// ============================================
-// ROUTES PUBLIQUES - POUR LES VISITEURS
-// ============================================
-
-// @route   GET /api/categories
-// @desc    Obtenir toutes les catégories actives avec leurs images
-// @access  Public
 router.get('/', async (req, res) => {
   try {
-    const categories = await Category.find({ actif: true })
-      .sort({ ordre: 1, nom: 1 })
-      .select('nom slug ordre')
+    const [categories, allImages, activePromotions] = await Promise.all([
+      Category.find({ actif: true }).sort({ ordre: 1, nom: 1 }).select('nom slug ordre').lean(),
+      Image.find({ actif: true })
+        .sort({ ordre: 1, createdAt: -1 })
+        .select('url nom prix devise description enStock quantite dimensions materiau ordre categorie')
+        .lean(),
+      Promotion.find({
+        type: 'stock-limite',
+        actif: true,
+        dateDebut: { $lte: new Date() },
+        dateFin: { $gte: new Date() },
+      }).lean(),
+    ])
 
-    // Récupérer les images pour chaque catégorie
-    const categoriesWithImages = await Promise.all(
-      categories.map(async (cat) => {
-        const images = await Image.find({
-          categorie: cat._id,
-          actif: true,
-        })
-          .sort({ ordre: 1, createdAt: -1 })
-          // ⚠️ IMPORTANT : Sélectionner TOUS les champs nécessaires
-          .select(
-            'url nom prix devise description enStock quantite dimensions materiau ordre',
-          )
-          .limit(20) // Limiter à 20 images par catégorie
+    const imagesByCategory = {}
+    allImages.forEach((img) => {
+      const catId = img.categorie.toString()
+      if (!imagesByCategory[catId]) imagesByCategory[catId] = []
+      if (imagesByCategory[catId].length < 20) {
+        imagesByCategory[catId].push(img)
+      }
+    })
 
+    const promoByCategory = {}
+    activePromotions.forEach((p) => {
+      if (p.categorie) promoByCategory[p.categorie.toString()] = p
+    })
+
+    const categoriesWithContent = categories
+      .map((cat) => {
+        const catId = cat._id.toString()
         return {
           id: cat._id,
           nom: cat.nom,
           slug: cat.slug,
           ordre: cat.ordre,
-          images,
-          nombreImages: images.length,
+          images: imagesByCategory[catId] || [],
+          promotion: promoByCategory[catId] || null,
+          nombreImages: (imagesByCategory[catId] || []).length,
         }
-      }),
-    )
-
-    // Filtrer les catégories qui ont au moins une image
-    const categoriesWithContent = categoriesWithImages.filter(
-      (cat) => cat.images.length > 0,
-    )
+      })
+      .filter((cat) => cat.images.length > 0)
 
     res.json({
       success: true,
@@ -60,9 +63,6 @@ router.get('/', async (req, res) => {
   }
 })
 
-// @route   GET /api/categories/:slug
-// @desc    Obtenir une catégorie par slug avec ses images
-// @access  Public
 router.get('/:slug', async (req, res) => {
   try {
     const category = await Category.findOne({
@@ -82,7 +82,6 @@ router.get('/:slug', async (req, res) => {
       actif: true,
     })
       .sort({ ordre: 1, createdAt: -1 })
-      // ⚠️ IMPORTANT : Tous les champs ici aussi
       .select(
         'url nom prix devise description enStock quantite dimensions materiau ordre',
       )

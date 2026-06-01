@@ -83,10 +83,11 @@ const imageSchema = new mongoose.Schema(
 // Index pour optimiser les requêtes
 imageSchema.index({ categorie: 1, ordre: 1 })
 imageSchema.index({ categorie: 1, actif: 1 })
+imageSchema.index({ categorie: 1, actif: 1, ordre: 1, createdAt: -1 })
 
 // Méthode virtuelle pour formater le prix - AVEC GESTION DES UNDEFINED
 imageSchema.virtual('prixFormate').get(function () {
-  // ⚠️ Vérifier que prix existe et n'est pas undefined
+  //  Vérifier que prix existe et n'est pas undefined
   if (this.prix === undefined || this.prix === null || this.prix === 0) {
     return 'Prix sur demande'
   }
@@ -95,7 +96,7 @@ imageSchema.virtual('prixFormate').get(function () {
 
 // Méthode virtuelle pour formater les dimensions
 imageSchema.virtual('dimensionsFormatees').get(function () {
-  // ⚠️ Vérifier que dimensions existe
+  //  Vérifier que dimensions existe
   if (!this.dimensions) return null
 
   const { longueur, largeur, hauteur } = this.dimensions

@@ -20,16 +20,24 @@ const reviewSchema = new mongoose.Schema(
       type: String, // URL de la photo ou avatar généré
       required: true,
     },
+    note: {
+      type: Number,
+      required: true,
+      min: 1,
+      max: 5,
+      default: 5,
+    },
     message: {
       type: String,
       required: true,
       trim: true,
+      minlength: 10,
       maxlength: 1000,
     },
     status: {
       type: String,
       enum: ['pending', 'approved', 'rejected'],
-      default: 'approved', // Auto-approuvé par défaut
+      default: 'pending',
     },
     likes: {
       type: Number,

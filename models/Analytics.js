@@ -14,6 +14,12 @@ const AnalyticsSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  heures: [
+    {
+      heure: Number,
+      visites: { type: Number, default: 0 },
+    },
+  ],
   produits: [
     {
       produitId: {
@@ -42,7 +48,6 @@ const AnalyticsSchema = new mongoose.Schema({
   ],
 })
 
-// Index composé pour optimiser les requêtes par date
 AnalyticsSchema.index({ date: -1 })
 
 module.exports = mongoose.model('Analytics', AnalyticsSchema)

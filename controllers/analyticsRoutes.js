@@ -1,28 +1,30 @@
 const express = require('express')
 const router = express.Router()
 const Analytics = require('../models/Analytics')
+const Review = require('../models/Review')
+const Promotion = require('../models/Promotion')
 const { verifyAdmin } = require('../utils/adminAuth')
 
 // @route   GET /api/admin/analytics/dashboard
-// @desc    Obtenir les stats dashboard (30 derniers jours)
+// @desc    Obtenir les stats dashboard avec période variable
 // @access  Private (Admin)
 router.get('/dashboard', verifyAdmin, async (req, res) => {
   try {
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const days = Math.min(365, Math.max(1, parseInt(req.query.days) || 30))
 
-    // Récupérer les données des 30 derniers jours
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - days)
+
     const analytics = await Analytics.find({
-      date: { $gte: thirtyDaysAgo },
+      date: { $gte: startDate },
     })
       .sort({ date: 1 })
       .lean()
 
-    // Formater les données pour le graphique
     const chartData = []
     const today = new Date()
 
-    for (let i = 29; i >= 0; i--) {
+    for (let i = days - 1; i >= 0; i--) {
       const date = new Date(today)
       date.setDate(date.getDate() - i)
       date.setHours(0, 0, 0, 0)
@@ -38,11 +40,9 @@ router.get('/dashboard', verifyAdmin, async (req, res) => {
       })
     }
 
-    // Calculer les totaux
     const totalVisites = analytics.reduce((sum, a) => sum + a.visites, 0)
     const totalCommandes = analytics.reduce((sum, a) => sum + a.commandes, 0)
 
-    // Trouver le produit le plus commandé
     const produitsMap = new Map()
     analytics.forEach((day) => {
       day.produits?.forEach((p) => {
@@ -59,7 +59,6 @@ router.get('/dashboard', verifyAdmin, async (req, res) => {
       (a, b) => b.total - a.total,
     )[0] || { nom: 'Aucun', total: 0 }
 
-    // Trouver la catégorie la plus commandée
     const categoriesMap = new Map()
     analytics.forEach((day) => {
       day.categories?.forEach((c) => {
@@ -95,6 +94,86 @@ router.get('/dashboard', verifyAdmin, async (req, res) => {
   }
 })
 
+// @route   GET /api/admin/analytics/alerts
+// @desc    Obtenir les alertes pour le dashboard
+// @access  Private (Admin)
+router.get('/alerts', verifyAdmin, async (req, res) => {
+  try {
+    const [pendingCount, promos] = await Promise.all([
+      Review.countDocuments({ status: 'pending' }),
+      Promotion.find({
+        actif: true,
+        dateFin: {
+          $gte: new Date(),
+          $lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      })
+        .select('nom dateFin')
+        .lean(),
+    ])
+
+    res.json({
+      success: true,
+      pendingReviews: pendingCount,
+      expiringPromotions: promos.map((p) => ({
+        id: p._id,
+        nom: p.nom,
+        dateFin: p.dateFin,
+      })),
+    })
+  } catch (error) {
+    console.error('Erreur alerts:', error)
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    })
+  }
+})
+
+// @route   GET /api/admin/analytics/heures
+// @desc    Obtenir les visites par heure pour les N derniers jours
+// @access  Private (Admin)
+router.get('/heures', verifyAdmin, async (req, res) => {
+  try {
+    const days = Math.min(90, Math.max(1, parseInt(req.query.days) || 30))
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - days)
+
+    const analytics = await Analytics.find({
+      date: { $gte: startDate },
+    })
+      .select('date heures')
+      .lean()
+
+    const heuresData = []
+    for (let h = 0; h < 24; h++) {
+      heuresData.push({ heure: `${h}h`, visites: 0 })
+    }
+
+    let docsAvecHeures = 0
+    analytics.forEach((day) => {
+      if (Array.isArray(day.heures)) {
+        docsAvecHeures++
+        day.heures.forEach((h) => {
+          if (h && typeof h.heure === 'number' && h.heure >= 0 && h.heure < 24) {
+            heuresData[h.heure].visites += (typeof h.visites === 'number' ? h.visites : 0)
+          }
+        })
+      }
+    })
+
+    console.log(`[heures] ${days}j: ${analytics.length} documents trouvés, ${docsAvecHeures} avec heures, total visites heures=${heuresData.reduce((s, h) => s + h.visites, 0)}`)
+
+    res.json({ success: true, heures: heuresData })
+  } catch (error) {
+    console.error('Erreur analytics heures:', error)
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    })
+  }
+})
+
 // @route   POST /api/admin/analytics/visite
 // @desc    Enregistrer une visite (appelé depuis le frontend public)
 // @access  Public
@@ -102,12 +181,47 @@ router.post('/visite', async (req, res) => {
   try {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
+    const currentHour = new Date().getHours()
 
-    await Analytics.findOneAndUpdate(
-      { date: today },
-      { $inc: { visites: 1 } },
-      { upsert: true, new: true },
-    )
+    console.log(`[visite] Nouvelle visite - ${today.toISOString().split('T')[0]} à ${currentHour}h`)
+
+    let analytics = await Analytics.findOne({ date: today })
+
+    if (analytics) {
+      analytics.visites += 1
+
+      if (!Array.isArray(analytics.heures)) {
+        console.log('[visite] Document existant sans heures ou mauvais format -> initialisation 24h')
+        const heures = Array.from({ length: 24 }, (_, i) => ({
+          heure: i,
+          visites: i === currentHour ? 1 : 0,
+        }))
+        analytics.heures = heures
+      } else {
+        const heureIndex = analytics.heures.findIndex((h) => h.heure === currentHour)
+        if (heureIndex >= 0) {
+          analytics.heures[heureIndex].visites += 1
+        } else {
+          analytics.heures.push({ heure: currentHour, visites: 1 })
+        }
+      }
+
+      await analytics.save()
+      console.log(`[visite] sauvegardé: visites=${analytics.visites}, heures.length=${analytics.heures.length}, heure[${currentHour}].visites=${analytics.heures.find(h => h.heure === currentHour)?.visites}`)
+    } else {
+      console.log('[visite] Nouveau document avec tableau heures complet')
+      const heures = Array.from({ length: 24 }, (_, i) => ({
+        heure: i,
+        visites: i === currentHour ? 1 : 0,
+      }))
+
+      await Analytics.create({
+        date: today,
+        visites: 1,
+        heures,
+      })
+      console.log('[visite] Nouveau document créé avec 24 heures')
+    }
 
     res.json({ success: true })
   } catch (error) {
@@ -129,10 +243,8 @@ router.post('/commande', async (req, res) => {
     const analytics = await Analytics.findOne({ date: today })
 
     if (analytics) {
-      // Incrémenter commandes totales
       analytics.commandes += 1
 
-      // Incrémenter produit
       const produitIndex = analytics.produits.findIndex(
         (p) => p.produitId?.toString() === produitId,
       )
@@ -146,7 +258,6 @@ router.post('/commande', async (req, res) => {
         })
       }
 
-      // Incrémenter catégorie
       const categorieIndex = analytics.categories.findIndex(
         (c) => c.categorieId?.toString() === categorieId,
       )
@@ -162,7 +273,6 @@ router.post('/commande', async (req, res) => {
 
       await analytics.save()
     } else {
-      // Créer nouveau document
       await Analytics.create({
         date: today,
         commandes: 1,
