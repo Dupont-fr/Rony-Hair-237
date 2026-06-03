@@ -15,10 +15,13 @@ router.get('/', async (req, res) => {
       Promotion.find({
         type: 'stock-limite',
         actif: true,
-        dateDebut: { $lte: new Date() },
+        dateDebut: { $lte: new Date(Date.now() + 30 * 60 * 1000) },
         dateFin: { $gte: new Date() },
       }).lean(),
     ])
+
+    console.log('[publicCategories] Promotions trouvées:', activePromotions.length,
+      activePromotions.map(p => ({ id: p._id, nom: p.nom, actif: p.actif, dateDebut: p.dateDebut, dateFin: p.dateFin, categorie: p.categorie?.toString() })))
 
     const imagesByCategory = {}
     allImages.forEach((img) => {

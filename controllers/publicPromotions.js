@@ -22,7 +22,7 @@ router.get('/active', async (req, res) => {
     // Récupérer toutes les promotions actives dans la période
     const promotions = await Promotion.find({
       actif: true,
-      dateDebut: { $lte: now },
+      dateDebut: { $lte: new Date(Date.now() + 30 * 60 * 1000) },
       dateFin: { $gte: now },
     })
       .populate('categorie', 'nom slug')
@@ -61,7 +61,7 @@ router.get('/category/:categoryId', async (req, res) => {
       type: 'stock-limite',
       categorie: categoryId,
       actif: true,
-      dateDebut: { $lte: now },
+      dateDebut: { $lte: new Date(Date.now() + 30 * 60 * 1000) },
       dateFin: { $gte: now },
     }).select('type nom description image dateDebut dateFin')
 
@@ -101,7 +101,7 @@ router.get('/tombola', async (req, res) => {
     const promotions = await Promotion.find({
       type: 'tombola',
       actif: true,
-      dateDebut: { $lte: now },
+      dateDebut: { $lte: new Date(Date.now() + 30 * 60 * 1000) },
       dateFin: { $gte: now },
     })
       .select('nom description image dateDebut dateFin gains dureeAffichage')

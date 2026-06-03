@@ -5,8 +5,46 @@ const Category = require('../models/Category')
 const { verifyAdmin } = require('../utils/adminAuth')
 
 // ============================================
-// ROUTES ADMIN - GESTION DES PROMOTIONS
+// DIAGNOSTIC - DÉBOGUER LES PROMOTIONS
 // ============================================
+
+// @route   GET /api/admin/promotions/debug/check
+// @desc    Vérifier pourquoi une promotion n'apparaît pas côté public
+// @access  Private (Admin)
+router.get('/debug/check', verifyAdmin, async (req, res) => {
+  try {
+    const now = new Date()
+    const all = await Promotion.find().lean()
+
+    const withAnalysis = all.map((p) => ({
+      _id: p._id,
+      nom: p.nom,
+      type: p.type,
+      actif: p.actif,
+      dateDebut: p.dateDebut,
+      dateFin: p.dateFin,
+      categorie: p.categorie ? p.categorie.toString() : null,
+      // Analyse : pourquoi la promo est-elle filtrée ou non ?
+      manqueActif: !p.actif,
+      dateDebutFuture: p.dateDebut > now,
+      dateFinPassee: p.dateFin < now,
+      passeFiltrePublic: p.actif && p.dateDebut <= now && p.dateFin >= now,
+    }))
+
+    res.json({
+      serverTime: now,
+      serverTimeISO: now.toISOString(),
+      serverTZ: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      totalPromotions: all.length,
+      promotions: withAnalysis,
+    })
+  } catch (error) {
+    console.error('Erreur diagnostic promotions:', error)
+    res.status(500).json({ success: false, message: error.message })
+  }
+})
+
+
 
 // @route   GET /api/admin/promotions
 // @desc    Obtenir toutes les promotions
